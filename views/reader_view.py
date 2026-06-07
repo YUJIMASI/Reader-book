@@ -4,10 +4,11 @@ from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QScrollArea, QLabel, QPushButton, QFrame, QProgressBar
 )
-from PySide6.QtGui import QPixmap, QImage, QKeyEvent, QMouseEvent
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtGui import QPixmap, QImage, QKeyEvent, QMouseEvent, QIcon
+from PySide6.QtCore import Qt
 
 from database.database_manager import DatabaseManager
+import resources_rc
 
 
 class ReaderView(QMainWindow):
@@ -25,21 +26,21 @@ class ReaderView(QMainWindow):
         self.doc = fitz.open(self.file_path)
         self.total_pages = len(self.doc)
 
+        # Garante que a página atual é válida
         self.current_page = book[7] or 0
+        if self.current_page >= self.total_pages:
+            self.current_page = 0
+
         self.zoom = 1.3  
         self.current_theme = "dark" 
-
-        self.page_labels = []
         self._drag_position = None
 
         self.setWindowTitle(f"YuBooks Reader - {self.book_title_str}")
-        self.resize(1000, 850)
+        self.resize(900, 850)
 
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowSystemMenuHint)
         self.setup_ui()
-        self.render_pages()
-
-        QTimer.singleShot(200, self.restore_page)
+        self.apply_theme(self.current_theme)
 
     # ================= ARRASTAR JANELA CUSTOMIZADO =================
     def mousePressEvent(self, event: QMouseEvent):
@@ -58,10 +59,10 @@ class ReaderView(QMainWindow):
     def toggle_maximize_restore(self):
         if self.isMaximized():
             self.showNormal()
-            self.btn_maximize.setText("🗖")
+            self.btn_maximize.setIcon(QIcon(":/assets/icons/maximize.png"))
         else:
             self.showMaximized()
-            self.btn_maximize.setText("🗗")
+            self.btn_maximize.setIcon(QIcon(":/assets/icons/restore.png"))
 
     # ================= UI & LAYOUT =================
     def setup_ui(self):
@@ -71,7 +72,7 @@ class ReaderView(QMainWindow):
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
 
-        # 1. BARRA SUPERIOR
+        # 1. BARRA SUPERIOR (TOOLBAR)
         self.toolbar = QFrame()
         self.toolbar.setFixedHeight(50)
         toolbar_layout = QHBoxLayout(self.toolbar)
@@ -82,24 +83,42 @@ class ReaderView(QMainWindow):
         toolbar_layout.addWidget(lbl_title)
         toolbar_layout.addStretch()
 
-        # Botões do Menu com Texto e Símbolos Universais
-        self.btn_zoom_out = QPushButton("   − Zoom   ")
-        self.btn_zoom_in = QPushButton("   + Zoom   ")
-        self.btn_light = QPushButton(" ☀️ ")
-        self.btn_sepia = QPushButton(" 🗩 ")
-        self.btn_dark = QPushButton(" 🌙 ")
+        # Botões de Navegação de Páginas (Substitui o scroll infinito problemático)
+        self.btn_prev = QPushButton("◀")
+        self.btn_next = QPushButton("▶")
+        self.btn_prev.setFixedSize(35, 32)
+        self.btn_next.setFixedSize(35, 32)
+        toolbar_layout.addWidget(self.btn_prev)
+        toolbar_layout.addWidget(self.btn_next)
+        toolbar_layout.addSpacing(15)
+
+        # Botões de Zoom e Tema
+        self.btn_zoom_out = QPushButton()
+        self.btn_zoom_in = QPushButton()
+        self.btn_light = QPushButton()
+        self.btn_sepia = QPushButton()
+        self.btn_dark = QPushButton()
+
+        self.btn_zoom_out.setIcon(QIcon(":/assets/icons/zoom_out.png"))
+        self.btn_zoom_in.setIcon(QIcon(":/assets/icons/zoom_in.png"))
+        self.btn_light.setIcon(QIcon(":/assets/icons/sun.png"))
+        self.btn_sepia.setIcon(QIcon(":/assets/icons/theme_sepia.png"))
+        self.btn_dark.setIcon(QIcon(":/assets/icons/moon.png"))
 
         for btn in [self.btn_zoom_out, self.btn_zoom_in, self.btn_light, self.btn_sepia, self.btn_dark]:
-            btn.setFixedHeight(32)
-            btn.setStyleSheet("font-weight: bold; font-size: 12px; padding: 0 5px;")
+            btn.setFixedSize(40, 32)
             toolbar_layout.addWidget(btn)
 
         toolbar_layout.addSpacing(20)
 
-        # Controle de Janela Nativo
-        self.btn_minimize = QPushButton("─")
-        self.btn_maximize = QPushButton("🗖")
-        self.btn_close = QPushButton("×")
+        # Controles de Janela
+        self.btn_minimize = QPushButton()
+        self.btn_maximize = QPushButton()
+        self.btn_close = QPushButton()
+
+        self.btn_minimize.setIcon(QIcon(":/assets/icons/minimize.png"))
+        self.btn_maximize.setIcon(QIcon(":/assets/icons/maximize.png"))
+        self.btn_close.setIcon(QIcon(":/assets/icons/close.png"))
 
         self.btn_minimize.setObjectName("windowCtrl")
         self.btn_maximize.setObjectName("windowCtrl")
@@ -107,32 +126,35 @@ class ReaderView(QMainWindow):
 
         for btn in [self.btn_minimize, self.btn_maximize, self.btn_close]:
             btn.setFixedSize(45, 50) 
-            btn.setStyleSheet("font-size: 16px; font-weight: bold;")
             toolbar_layout.addWidget(btn)
 
         main_layout.addWidget(self.toolbar)
 
-        # 2. ÁREA DE LEITURA
+        # 2. ÁREA DE LEITURA (Apenas uma única label centralizada)
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
         self.scroll.setAlignment(Qt.AlignCenter)
         self.scroll.setFrameShape(QFrame.NoFrame) 
 
         self.container = QWidget()
-        self.vbox = QVBoxLayout(self.container)
-        self.vbox.setSpacing(20)          
-        self.vbox.setContentsMargins(0, 20, 0, 20)
+        container_layout = QVBoxLayout(self.container)
+        container_layout.setContentsMargins(0, 20, 0, 20)
+        container_layout.setAlignment(Qt.AlignCenter)
+
+        self.page_label = QLabel()
+        self.page_label.setAlignment(Qt.AlignCenter)
+        container_layout.addWidget(self.page_label)
 
         self.scroll.setWidget(self.container)
         main_layout.addWidget(self.scroll)
 
-        # 3. BARRA INFERIOR COM PROGRESSO VISUAL
+        # 3. BARRA INFERIOR (STATUS BAR)
         self.status_bar = QFrame()
         self.status_bar.setFixedHeight(40)
         status_layout = QHBoxLayout(self.status_bar)
         status_layout.setContentsMargins(15, 0, 15, 0)
 
-        self.lbl_progress = QLabel(f"Página: {self.current_page + 1} / {self.total_pages}")
+        self.lbl_progress = QLabel("")
         status_layout.addWidget(self.lbl_progress)
         
         self.progress_bar = QProgressBar()
@@ -149,7 +171,8 @@ class ReaderView(QMainWindow):
         main_layout.addWidget(self.status_bar)
 
         # ================= CONEXÕES =================
-        self.scroll.verticalScrollBar().valueChanged.connect(self.on_scroll)
+        self.btn_prev.clicked.connect(self.prev_page)
+        self.btn_next.clicked.connect(self.next_page)
         self.btn_zoom_in.clicked.connect(lambda: self.change_zoom(0.15))
         self.btn_zoom_out.clicked.connect(lambda: self.change_zoom(-0.15))
         
@@ -161,9 +184,7 @@ class ReaderView(QMainWindow):
         self.btn_maximize.clicked.connect(self.toggle_maximize_restore)
         self.btn_close.clicked.connect(self.close)
 
-        self.apply_theme(self.current_theme)
-
-    # ================= ESTILO DE TEMAS DINÂMICOS =================
+    # ================= ESTILO DE TEMAS =================
     def apply_theme(self, theme_name):
         self.current_theme = theme_name
 
@@ -178,128 +199,106 @@ class ReaderView(QMainWindow):
             QWidget {{ background-color: {bg_main}; color: {text_color}; font-family: 'Segoe UI', Arial, sans-serif; }}
             QFrame {{ background-color: {bg_panel}; border: none; }}
             QScrollArea {{ background-color: {bg_main}; border: none; }}
-            QPushButton {{ background-color: {bg_panel}; border: 1px solid {border_color}; border-radius: 6px; padding: 5px; }}
+            QPushButton {{ background-color: {bg_panel}; border: 1px solid {border_color}; border-radius: 6px; padding: 5px; color: {text_color}; }}
             QPushButton:hover {{ background-color: {hover_ctrl}; border-color: {progress_color}; }}
             
-            QPushButton#windowCtrl, QPushButton#windowClose {{ background-color: transparent; border: none; border-radius: 0px; font-size: 16px; font-weight: bold; }}
+            QPushButton#windowCtrl, QPushButton#windowClose {{ background-color: transparent; border: none; border-radius: 0px; }}
             QPushButton#windowCtrl:hover {{ background-color: {hover_ctrl}; }}
-            QPushButton#windowClose:hover {{ background-color: #e81123; color: white; }}
+            QPushButton#windowClose:hover {{ background-color: #e81123; }}
 
             QProgressBar {{ background-color: {border_color}; border: none; border-radius: 3px; }}
             QProgressBar::chunk {{ background-color: {progress_color}; border-radius: 3px; }}
 
-            /* 🔥 BARRA DE SCROLL DO LEITOR ADAPTÁVEL AO TEMA */
-            QScrollBar:vertical {{
-                background-color: {bg_main};
-                width: 10px;
-                margin: 0px;
-                border-radius: 5px;
-            }}
-            QScrollBar::handle:vertical {{
-                background-color: {scroll_thumb};
-                min-height: 40px;
-                border-radius: 5px;
-            }}
-            QScrollBar::handle:vertical:hover {{
-                background-color: {progress_color}; /* Destaca com a cor principal do tema */
-            }}
-            QScrollBar::sub-line:vertical, QScrollBar::add-line:vertical {{
-                background: none;
-                height: 0px;
-            }}
-            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{
-                background: none;
-            }}
+            QScrollBar:vertical {{ background-color: {bg_main}; width: 10px; margin: 0px; border-radius: 5px; }}
+            QScrollBar::handle:vertical {{ background-color: {scroll_thumb}; min-height: 40px; border-radius: 5px; }}
+            QScrollBar::handle:vertical:hover {{ background-color: {progress_color}; }}
+            QScrollBar::sub-line:vertical, QScrollBar::add-line:vertical {{ background: none; height: 0px; }}
+            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{ background: none; }}
         """)
         
         self.toolbar.setStyleSheet(f"background-color: {bg_panel}; border-bottom: 1px solid {border_color};")
         self.status_bar.setStyleSheet(f"background-color: {bg_panel}; border-top: 1px solid {border_color};")
-        self.render_pages()
+        
+        self.render_page()
 
-    # ================= RENDERIZADOR DE PDF =================
-    def render_pages(self):
-        for label in self.page_labels:
-            self.vbox.removeWidget(label)
-            label.deleteLater()
-        self.page_labels.clear()
+    # ================= RENDERIZAR UMA ÚNICA PÁGINA =================
+    def render_page(self):
+        if not self.doc or self.total_pages == 0:
+            return
 
-        for i in range(self.total_pages):
-            page = self.doc.load_page(i)
-            matrix = fitz.Matrix(self.zoom, self.zoom)
-            pix = page.get_pixmap(matrix=matrix, colorspace=fitz.csRGB, alpha=False)
-            
-            if self.current_theme == "dark":
-                try:
-                    pix.invert_irect(pix.irect)
-                except AttributeError:
-                    samples = np.frombuffer(pix.samples, dtype=np.uint8)
-                    inverted_samples = 255 - samples
-                    pix = fitz.Pixmap(pix.colorspace, pix.width, pix.height, inverted_samples)
+        # Carrega apenas a página que o utilizador está a ver atualmente
+        page = self.doc.load_page(self.current_page)
+        matrix = fitz.Matrix(self.zoom, self.zoom)
+        pix = page.get_pixmap(matrix=matrix, colorspace=fitz.csRGB, alpha=False)
+        
+        if self.current_theme == "dark":
+            try:
+                pix.invert_irect(pix.irect)
+            except AttributeError:
+                samples = np.frombuffer(pix.samples, dtype=np.uint8)
+                inverted_samples = 255 - samples
+                pix = fitz.Pixmap(pix.colorspace, pix.width, pix.height, inverted_samples)
 
-            img = QImage(pix.samples, pix.width, pix.height, pix.stride, QImage.Format_RGB888)
+        img = QImage(pix.samples, pix.width, pix.height, pix.stride, QImage.Format_RGB888)
+        self.page_label.setPixmap(QPixmap.fromImage(img))
+        
+        if self.current_theme == "light":
+            self.page_label.setStyleSheet("border: 1px solid #dcdcdc; background-color: white;")
+        elif self.current_theme == "sepia":
+            self.page_label.setStyleSheet("border: 1px solid #e3d6b6; background-color: #fdf6e3;")
+        else:
+            self.page_label.setStyleSheet("border: 1px solid #2d2d2d; background-color: #1c1c1c;")
 
-            label = QLabel()
-            label.setPixmap(QPixmap.fromImage(img))
-            label.setAlignment(Qt.AlignCenter)
-            
-            if self.current_theme == "light":
-                label.setStyleSheet("border: 1px solid #dcdcdc; background-color: white;")
-            elif self.current_theme == "sepia":
-                label.setStyleSheet("border: 1px solid #e3d6b6; background-color: #fdf6e3;")
-            else:
-                label.setStyleSheet("border: 1px solid #2d2d2d; background-color: #1c1c1c;")
-
-            self.vbox.addWidget(label)
-            self.page_labels.append(label)
+        self.update_progress_ui()
+        # Faz o scroll voltar ao topo sempre que muda de página
+        self.scroll.verticalScrollBar().setValue(0)
 
     # ================= NAVEGAÇÃO =================
+    def prev_page(self):
+        if self.current_page > 0:
+            self.current_page -= 1
+            self.render_page()
+
+    def next_page(self):
+        if self.current_page < self.total_pages - 1:
+            self.current_page += 1
+            self.render_page()
+
     def change_zoom(self, delta):
-        if 0.6 <= self.zoom + delta <= 3.0:
-            saved_page = self.get_current_page()
+        if 0.6 <= self.zoom + delta <= 2.5:
             self.zoom += delta
-            self.render_pages()
-            self.current_page = saved_page
-            QTimer.singleShot(50, self.restore_page)
+            self.render_page()
 
-    def restore_page(self):
-        if not self.page_labels or self.current_page >= len(self.page_labels): return
-        label = self.page_labels[self.current_page]
-        self.scroll.verticalScrollBar().setValue(label.y())
-        self.update_progress_ui(self.current_page)
-
-    def get_current_page(self):
-        scroll_y = self.scroll.verticalScrollBar().value()
-        current = 0
-        for i, label in enumerate(self.page_labels):
-            if label.y() <= scroll_y + 100: current = i
-        return current
-
-    def on_scroll(self):
-        page = self.get_current_page()
-        if page != self.current_page:
-            self.current_page = page
-            self.update_progress_ui(page)
-
-    def update_progress_ui(self, page_index):
-        pct = round(((page_index + 1) / self.total_pages) * 100) if self.total_pages else 0
-        self.lbl_progress.setText(f"Página: {page_index + 1} / {self.total_pages} ({pct}%)")
+    def update_progress_ui(self):
+        pct = round(((self.current_page + 1) / self.total_pages) * 100) if self.total_pages else 0
+        self.lbl_progress.setText(f"Página: {self.current_page + 1} / {self.total_pages} ({pct}%)")
         self.progress_bar.setValue(pct)
 
     def keyPressEvent(self, event: QKeyEvent):
-        scrollbar = self.scroll.verticalScrollBar()
-        step = scrollbar.singleStep() * 4
-        if event.key() in (Qt.Key_Down, Qt.Key_PageDown): scrollbar.setValue(scrollbar.value() + step)
-        elif event.key() in (Qt.Key_Up, Qt.Key_PageUp): scrollbar.setValue(scrollbar.value() - step)
-        else: super().keyPressEvent(event)
+        # Mapeamento do teclado para facilitar a leitura
+        if event.key() == Qt.Key_Right:
+            self.next_page()
+        elif event.key() == Qt.Key_Left:
+            self.prev_page()
+        else:
+            scrollbar = self.scroll.verticalScrollBar()
+            step = scrollbar.singleStep() * 4
+            if event.key() in (Qt.Key_Down, Qt.Key_PageDown): 
+                scrollbar.setValue(scrollbar.value() + step)
+            elif event.key() in (Qt.Key_Up, Qt.Key_PageUp): 
+                scrollbar.setValue(scrollbar.value() - step)
+            else: 
+                super().keyPressEvent(event)
 
     def wheelEvent(self, event):
         if event.modifiers() == Qt.ControlModifier:
             if event.angleDelta().y() > 0: self.change_zoom(0.1)
             else: self.change_zoom(-0.1)
             event.accept()
-        else: super().wheelEvent(event)
+        else: 
+            super().wheelEvent(event)
 
     def closeEvent(self, event):
-        page = self.get_current_page()
-        self.db.update_progress(self.book_id, page, self.total_pages)
+        # Guarda o progresso exato da página atual na Base de Dados ao fechar
+        self.db.update_progress(self.book_id, self.current_page, self.total_pages)
         event.accept()

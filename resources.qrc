@@ -1,0 +1,23 @@
+<!DOCTYPE RCC><RCC version="1.0">
+<qresource>
+    <file>assets/icons/minimize.png</file>
+    <file>assets/icons/maximize.png</file>
+    <file>assets/icons/restore.png</file>
+    <file>assets/icons/close.png</file>
+    <file>assets/icons/book_all.png</file>
+    <file>assets/icons/book_reading.png</file>
+    <file>assets/icons/book_finished.png</file>
+    <file>assets/icons/bookmark.png</file>
+    <file>assets/icons/heart.png</file>
+    <file>assets/icons/import.png</file>
+    <file>assets/icons/play.png</file>
+    <file>assets/icons/star_empty.png</file>
+    <file>assets/icons/star_filled.png</file>
+    <file>assets/icons/trash.png</file>
+    <file>assets/icons/zoom_in.png</file>
+    <file>assets/icons/zoom_out.png</file>
+    <file>assets/icons/sun.png</file>
+    <file>assets/icons/moon.png</file>
+    <file>assets/icons/theme_sepia.png</file>
+</qresource>
+</RCC>

@@ -1,6 +1,6 @@
 import os
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QPixmap, QMouseEvent
+from PySide6.QtGui import QPixmap, QMouseEvent, QIcon
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
     QLabel, QListWidget, QPushButton, QFileDialog, QFrame, QProgressBar
@@ -9,6 +9,9 @@ from PySide6.QtWidgets import (
 from database.database_manager import DatabaseManager
 from utils.cover_generator import generate_pdf_cover
 from views.reader_view import ReaderView
+
+# Importa o ficheiro compilado de recursos locais
+import resources_rc
 
 
 class LibraryView(QMainWindow):
@@ -64,10 +67,10 @@ class LibraryView(QMainWindow):
     def toggle_maximize_restore(self):
         if self.isMaximized():
             self.showNormal()
-            self.btn_maximize.setText("🗖")
+            self.btn_maximize.setIcon(QIcon(":/assets/icons/maximize.png"))
         else:
             self.showMaximized()
-            self.btn_maximize.setText("🗗")
+            self.btn_maximize.setIcon(QIcon(":/assets/icons/restore.png"))
 
     # ================= UI & LAYOUT =================
     def setup_ui(self):
@@ -89,10 +92,13 @@ class LibraryView(QMainWindow):
         top_layout.addWidget(lbl_app_title)
         top_layout.addStretch()
 
-        # Botões de Controle Nativos do Sistema (Sem Dependências!)
-        self.btn_minimize = QPushButton("─")
-        self.btn_maximize = QPushButton("🗖")
-        self.btn_close = QPushButton("×")
+        # Botões de Controle Nativos com os teus Ícones Locais
+        self.btn_minimize = QPushButton()
+        self.btn_minimize.setIcon(QIcon(":/assets/icons/minimize.png"))
+        self.btn_maximize = QPushButton()
+        self.btn_maximize.setIcon(QIcon(":/assets/icons/maximize.png"))
+        self.btn_close = QPushButton()
+        self.btn_close.setIcon(QIcon(":/assets/icons/close.png"))
 
         self.btn_minimize.setObjectName("windowCtrl")
         self.btn_maximize.setObjectName("windowCtrl")
@@ -100,7 +106,6 @@ class LibraryView(QMainWindow):
 
         for btn in [self.btn_minimize, self.btn_maximize, self.btn_close]:
             btn.setFixedSize(45, 50)
-            btn.setStyleSheet("font-size: 16px; font-weight: bold;")
             top_layout.addWidget(btn)
 
         outer_layout.addWidget(self.top_bar)
@@ -113,12 +118,18 @@ class LibraryView(QMainWindow):
         sidebar = QVBoxLayout()
         sidebar.setSpacing(8)
 
-        self.btn_all = QPushButton("📋  Todos")
-        self.btn_reading = QPushButton("📖  Lendo")
-        self.btn_finished = QPushButton("✅  Lidos")
-        self.btn_unread = QPushButton("🔖  Não lidos")
-        self.btn_favorites = QPushButton("❤️  Favoritos")
-        self.btn_import = QPushButton("➕  Importar Livro")
+        self.btn_all = QPushButton("  Todos")
+        self.btn_all.setIcon(QIcon(":/assets/icons/book_all.png"))
+        self.btn_reading = QPushButton("  Lendo")
+        self.btn_reading.setIcon(QIcon(":/assets/icons/book_reading.png"))
+        self.btn_finished = QPushButton("  Lidos")
+        self.btn_finished.setIcon(QIcon(":/assets/icons/book_finished.png"))
+        self.btn_unread = QPushButton("  Não lidos")
+        self.btn_unread.setIcon(QIcon(":/assets/icons/bookmark.png"))
+        self.btn_favorites = QPushButton("  Favoritos")
+        self.btn_favorites.setIcon(QIcon(":/assets/icons/heart.png"))
+        self.btn_import = QPushButton("  Importar Livro")
+        self.btn_import.setIcon(QIcon(":/assets/icons/import.png"))
 
         for btn in [self.btn_all, self.btn_reading, self.btn_finished, self.btn_unread, self.btn_favorites, self.btn_import]:
             btn.setStyleSheet("text-align: left; padding: 10px; font-size: 13px;")
@@ -157,10 +168,13 @@ class LibraryView(QMainWindow):
         self.progress_bar.setValue(0)
         self.progress_bar.setTextVisible(False)
 
-        # Botões de Ação Robustos
-        self.btn_continue = QPushButton("▶  Começar leitura")
-        self.btn_fav = QPushButton("☆  Favorito")
-        self.btn_delete = QPushButton("🗑  Apagar")
+        # Botões de Ação Dinâmicos
+        self.btn_continue = QPushButton("  Começar leitura")
+        self.btn_continue.setIcon(QIcon(":/assets/icons/play.png"))
+        self.btn_fav = QPushButton("  Favorito")
+        self.btn_fav.setIcon(QIcon(":/assets/icons/star_empty.png"))
+        self.btn_delete = QPushButton("  Apagar")
+        self.btn_delete.setIcon(QIcon(":/assets/icons/trash.png"))
 
         self.btn_continue.setStyleSheet("background:#d29f22; color:black; font-weight: bold; font-size: 13px; padding: 10px;")
         self.btn_delete.setStyleSheet("background:#5d0018; color:white; font-size: 13px; padding: 10px;")
@@ -186,13 +200,9 @@ class LibraryView(QMainWindow):
             QMainWindow { background-color: #19171b; }
             QWidget { background-color: #19171b; color: #ffffff; font-family: 'Segoe UI', Arial; }
             QFrame { background-color: #252628; border: none; }
-            
-            /* Lista de Livros */
             QListWidget { background-color: #252628; border: none; padding: 8px; border-radius: 10px; }
             QListWidget::item { padding: 12px; margin: 4px; background-color: #19171b; border-radius: 8px; }
             QListWidget::item:selected { background-color: #d29f22; color: black; font-weight: bold; }
-            
-            /* Botões */
             QPushButton { background-color: #252628; border: 1px solid #3e3f41; padding: 10px; border-radius: 8px; color: white; }
             QPushButton:hover { background-color: #323336; border-color: #d29f22; }
             
@@ -200,15 +210,14 @@ class LibraryView(QMainWindow):
             QPushButton#windowCtrl:hover { background-color: #2d2d2d; }
             QPushButton#windowClose:hover { background-color: #e81123; color: white; }
 
-            /* Progresso */
             QProgressBar { background-color: #252628; border: none; border-radius: 3px; }
             QProgressBar::chunk { background-color: #d29f22; border-radius: 3px; }
 
-            /* 🔥 BARRA DE SCROLL CUSTOMIZADA (LINDA E MODERNA) */
+            /* Barra de Scroll Customizada */
             QScrollBar:vertical {
                 background-color: #19171b;
                 width: 10px;
-                margin: 0px 0px 0px 0px;
+                margin: 0px;
                 border-radius: 5px;
             }
             QScrollBar::handle:vertical {
@@ -217,14 +226,11 @@ class LibraryView(QMainWindow):
                 border-radius: 5px;
             }
             QScrollBar::handle:vertical:hover {
-                background-color: #d29f22; /* Fica dourada ao passar o rato */
+                background-color: #d29f22;
             }
             QScrollBar::sub-line:vertical, QScrollBar::add-line:vertical {
                 background: none;
                 height: 0px;
-            }
-            QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical {
-                background: none;
             }
             QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
                 background: none;
@@ -256,15 +262,17 @@ class LibraryView(QMainWindow):
         self.progress_bar.setValue(book[8])
 
         if book[7] > 0:
-            self.btn_continue.setText("▶  Continuar leitura")
+            self.btn_continue.setText("  Continuar leitura")
         else:
-            self.btn_continue.setText("📖  Começar leitura")
+            self.btn_continue.setText("  Começar leitura")
 
         if book[10] == 1:
-            self.btn_fav.setText("★  Favoritado ✔")
+            self.btn_fav.setText("  Favoritado ✔")
+            self.btn_fav.setIcon(QIcon(":/assets/icons/star_filled.png"))
             self.btn_fav.setStyleSheet("color: #d29f22; font-weight: bold; padding: 10px;")
         else:
-            self.btn_fav.setText("☆  Favorito")
+            self.btn_fav.setText("  Favorito")
+            self.btn_fav.setIcon(QIcon(":/assets/icons/star_empty.png"))
             self.btn_fav.setStyleSheet("color: white; padding: 10px;")
 
     def toggle_favorite(self):
